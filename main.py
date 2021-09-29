@@ -10,8 +10,8 @@ TABLE_TEST_ID = '18CSD7sNaJWQ4DDOv6omd0J2jSYuT7xjlKCyAxSdz-QQ'
 
 generator = SitesGenerator()
 generator.download_data(TOKEN_FILE, TABLE_ID)
-# generator.gen_sites()
-print(generator.gen_master_item("agibalov-dl"))
+generator.gen_sites()
+#print(generator.gen_master_item("agibalov-dl"))
 
 
 

@@ -10,6 +10,11 @@ MASTER_ABOUT_LIST = 'MasterAbout'
 SELECTION_MASTER_LIST = 'SectionMaster'
 MASTER_EDUCATION = 'MasterEducation'
 
+MASTER_MINIMUM_COUNT = 6
+MASTER_MAXIMUM_COUNT = 14
+
+OUT_DIRECTORY = 'S:\\sites\\'
+
 class SitesGenerator:
     def __init__(self):
         self.container_df = pd.DataFrame()
@@ -48,8 +53,9 @@ class SitesGenerator:
         self.container_df['answer_2'] = self.expand_list(container_data[10], elements_count)
         self.container_df['question_3'] = self.expand_list(container_data[11], elements_count)
         self.container_df['answer_3'] = self.expand_list(container_data[12], elements_count)
-        self.container_df['add'] = self.expand_list(container_data[13], elements_count)
-        self.container_df['First_add'] = self.expand_list(container_data[14], elements_count)
+        self.container_df['add'] = self.to_bool_list(self.expand_list(container_data[13], elements_count))
+        self.container_df['First_add'] = self.to_bool_list(self.expand_list(container_data[14], elements_count))
+        self.container_df['generated'] = self.expand_list([False], elements_count)
 
         elements_count = len(master_data_data[0])
         self.master_data_df['path'] = master_data_data[0]
@@ -88,15 +94,124 @@ class SitesGenerator:
         return [True if len(i) > 0 else False for i in arr]
 
     def gen_sites(self):
-        # Get sites with first_add
-        firsts_sites = self.container_df[self.container_df['First_add'] != '']
-        print(firsts_sites)
+        # Generate sites
+        firsts_sites = self.container_df[self.container_df['First_add'] == True].values
+        for site in firsts_sites:
+            masters = list(self.get_masters(site[0]))
+            masters = list(filter(lambda x : self.master_check(x), masters))
+            if len(masters) >= MASTER_MINIMUM_COUNT:
+                if len(masters) > MASTER_MAXIMUM_COUNT:
+                    masters = random.sample(masters, MASTER_MAXIMUM_COUNT)
+                    site_text = self.gen_site(site, masters)
+                    with open(OUT_DIRECTORY+site[2]+'.html', 'w', encoding='utf-8') as f:
+                        f.write(site_text)
+                    self.container_df.loc[self.container_df['urlPath'] == site[2], 'generated'] = True
+            else:
+                pass
+
+        # not_firsts_sites = self.container_df[self.container_df['First_add'] == False].values
+        # for site in not_firsts_sites:
+        #     masters = list(self.get_masters(site[0]))
+        #     masters = list(filter(lambda x : self.master_check(x), masters))
+        #     if len(masters) >= MASTER_MINIMUM_COUNT:
+        #         if len(masters) > MASTER_MAXIMUM_COUNT:
+        #             masters = random.sample(masters, MASTER_MAXIMUM_COUNT)
+        #             site_text = self.gen_site(site, masters)
+        #             with open(OUT_DIRECTORY+site[2]+'.html', 'w', encoding='utf-8') as f:
+        #                 f.write(site_text)
+        #             self.container_df.loc[self.container_df['urlPath'] == site[2], 'generated'] = True
+        #     else:
+        #         pass
+
+        # Link sites
+        generated_sites = self.container_df[self.container_df['generated'] == True].values
+        for site in generated_sites:
+            self.link_site(site)
+            self.container_df.loc[self.container_df['urlPath'] == site[2], 'add'] = True
+
+    def link_site(self, site):
+        # Open site
+        with open(OUT_DIRECTORY+site[2]+'.html', 'r', encoding='utf-8') as f:
+            site_text = f.read()
+        site_item = BeautifulSoup(site_text, "html.parser")
+
+        # Online block
+        online_list = list(self.container_df.loc[(self.container_df.generated == True) &\
+            (self.container_df.location == 'online') & (self.container_df.urlPath != site[2])]\
+            [['urlPath', 'name']].values)
+
+        if len(online_list) > 10:
+            online_list = random.sample(online_list, 10)
+
+        online_block = site_item.find('div', {'data-mark': "Container.linksBlock_1"}).parent.ul
+
+        for i in range(len(online_list)):
+            new_tag = site_item.new_tag('li')
+            new_tag2 = site_item.new_tag('a', href='/'+online_list[i][0])
+            online_block.append(new_tag)
+            online_block.find_all('li')[-1].append(new_tag2)
+            online_block.find_all('a')[-1].string = online_list[i][1]
+
+        # Local block
+        local_list = list(self.container_df.loc[(self.container_df.generated == True) &\
+            (self.container_df.location != 'online') & (self.container_df.urlPath != site[2])]\
+            [['urlPath', 'name']].values)
+
+        if len(local_list) > 10:
+            local_list = random.sample(local_list, 10)
+
+        locale_block = site_item.find('div', {'data-mark': "Container.linksBlock_2"}).parent.ul
+
+        for i in range(len(local_list)):
+            new_tag = site_item.new_tag('li')
+            new_tag2 = site_item.new_tag('a', href='/' + local_list[i][0])
+            locale_block.append(new_tag)
+            locale_block.find_all('li')[-1].append(new_tag2)
+            locale_block.find_all('a')[-1].string = local_list[i][1]
+
+
+        # Save site
+        with open(OUT_DIRECTORY + site[2] + '.html', 'w', encoding='utf-8') as f:
+            f.write(str(site_item))
+
+    def gen_site(self, site_data, masters):
+        # Get template of site
+        with open('template.html', 'r', encoding='utf-8') as f:
+            site_text = f.read()
+        site_item = BeautifulSoup(site_text, "html.parser")
+
+        # Filling template
+        # Info
+        site_item.head.title.string = site_data[5]
+        site_item.find('meta', {'data-mark': 'Container.description'}).attrs['content'] = site_data[6]
+        site_item.find('h1', {'data-mark': 'Container.name'}).string = site_data[3]
+
+        # Master list
+        site_item.find('h2', {'data-mark': 'Container.masterList'}).string = site_data[4]
+        masters_block = site_item.find('h2', {'data-mark': 'Container.masterList'}).parent.div
+        for i in range(len(masters)):
+            master_item = self.gen_master_item(masters[i])
+            if master_item is not None:
+                masters_block.insert(i, master_item)
+
+        return self.get_html(site_item)
+
+    def get_html(self, soup):
+        site_text = str(soup)
+        site_text = site_text.replace('&lt;', '<')
+        site_text = site_text.replace('&gt;', '>')
+        return site_text
+
+    def master_check(self, master):
+        masters = self.master_data_df[self.master_data_df['path'] == master].values
+        return len(masters) == 1
+
+    def get_masters(self, sectionid):
+        return self.selection_master_df[self.selection_master_df['sectionId'] == sectionid]['pathMaster'].values
 
     def gen_master_item(self, master):
         # Get author data
         masters = self.master_data_df[self.master_data_df['path'] == master].values
-        if len(masters) != 1:
-            print('Error master_data: ', master)
         master_data = masters[0]
 
         # Get template of master item
