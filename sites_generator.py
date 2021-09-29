@@ -13,7 +13,7 @@ MASTER_EDUCATION = 'MasterEducation'
 MASTER_MINIMUM_COUNT = 6
 MASTER_MAXIMUM_COUNT = 14
 
-OUT_DIRECTORY = 'S:\\sites\\'
+
 
 class SitesGenerator:
     def __init__(self):
@@ -93,7 +93,7 @@ class SitesGenerator:
     def to_bool_list(self, arr):
         return [True if len(i) > 0 else False for i in arr]
 
-    def gen_sites(self):
+    def gen_sites(self, out_directory):
         # Generate sites
         firsts_sites = self.container_df[self.container_df['First_add'] == True].values
         for site in firsts_sites:
@@ -103,35 +103,35 @@ class SitesGenerator:
                 if len(masters) > MASTER_MAXIMUM_COUNT:
                     masters = random.sample(masters, MASTER_MAXIMUM_COUNT)
                     site_text = self.gen_site(site, masters)
-                    with open(OUT_DIRECTORY+site[2]+'.html', 'w', encoding='utf-8') as f:
+                    with open(out_directory+site[2]+'.html', 'w', encoding='utf-8') as f:
                         f.write(site_text)
                     self.container_df.loc[self.container_df['urlPath'] == site[2], 'generated'] = True
             else:
                 pass
 
-        # not_firsts_sites = self.container_df[self.container_df['First_add'] == False].values
-        # for site in not_firsts_sites:
-        #     masters = list(self.get_masters(site[0]))
-        #     masters = list(filter(lambda x : self.master_check(x), masters))
-        #     if len(masters) >= MASTER_MINIMUM_COUNT:
-        #         if len(masters) > MASTER_MAXIMUM_COUNT:
-        #             masters = random.sample(masters, MASTER_MAXIMUM_COUNT)
-        #             site_text = self.gen_site(site, masters)
-        #             with open(OUT_DIRECTORY+site[2]+'.html', 'w', encoding='utf-8') as f:
-        #                 f.write(site_text)
-        #             self.container_df.loc[self.container_df['urlPath'] == site[2], 'generated'] = True
-        #     else:
-        #         pass
+        not_firsts_sites = self.container_df[self.container_df['First_add'] == False].values
+        for site in not_firsts_sites:
+            masters = list(self.get_masters(site[0]))
+            masters = list(filter(lambda x : self.master_check(x), masters))
+            if len(masters) >= MASTER_MINIMUM_COUNT:
+                if len(masters) > MASTER_MAXIMUM_COUNT:
+                    masters = random.sample(masters, MASTER_MAXIMUM_COUNT)
+                    site_text = self.gen_site(site, masters)
+                    with open(out_directory+site[2]+'.html', 'w', encoding='utf-8') as f:
+                        f.write(site_text)
+                    self.container_df.loc[self.container_df['urlPath'] == site[2], 'generated'] = True
+            else:
+                pass
 
         # Link sites
         generated_sites = self.container_df[self.container_df['generated'] == True].values
         for site in generated_sites:
-            self.link_site(site)
+            self.link_site(out_directory, site)
             self.container_df.loc[self.container_df['urlPath'] == site[2], 'add'] = True
 
-    def link_site(self, site):
+    def link_site(self, out_directory, site):
         # Open site
-        with open(OUT_DIRECTORY+site[2]+'.html', 'r', encoding='utf-8') as f:
+        with open(out_directory+site[2]+'.html', 'r', encoding='utf-8') as f:
             site_text = f.read()
         site_item = BeautifulSoup(site_text, "html.parser")
 
@@ -171,7 +171,7 @@ class SitesGenerator:
 
 
         # Save site
-        with open(OUT_DIRECTORY + site[2] + '.html', 'w', encoding='utf-8') as f:
+        with open(out_directory + site[2] + '.html', 'w', encoding='utf-8') as f:
             f.write(str(site_item))
 
     def gen_site(self, site_data, masters):
