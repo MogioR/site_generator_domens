@@ -152,3 +152,4 @@ fabric.properties
 
 # Token
 token.json
+*.csv

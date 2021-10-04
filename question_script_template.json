@@ -1,0 +1,30 @@
+{
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+         {
+            "@type": "Question",
+            "name": "{0}",
+            "acceptedAnswer": {
+               "@type": "Answer",
+               "text": "{1}"
+            }
+         },
+         {
+            "@type": "Question",
+            "name": "{2}",
+            "acceptedAnswer": {
+               "@type": "Answer",
+               "text": "{3}"
+            }
+         },
+         {
+            "@type": "Question",
+            "name": "{4}",
+            "acceptedAnswer": {
+               "@type": "Answer",
+               "text": "{5}"
+            }
+         }
+       ]
+ }
