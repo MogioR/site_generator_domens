@@ -101,7 +101,6 @@ class SitesGenerator:
         self.master_education_df['masterDataId'] = master_education_data[0]
         self.master_education_df['education'] = self.expand_list(master_education_data[1], elements_count)
 
-
     def expand_list(self, arr, size, placeholder=''):
         return arr + ([placeholder]*(size-len(arr)))
 
@@ -123,6 +122,15 @@ class SitesGenerator:
         for site in generated_sites:
             self.link_site(out_directory, site)
             self.container_df.loc[self.container_df['urlPath'] == site[2], 'add'] = True
+
+        # Mapping sites
+        map_text = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        for site in generated_sites:
+            map_text += self.gen_site_map_block('https://dumkii.com/'+site[2])
+        map_text += '</urlset>'
+
+        with open(out_directory + 'sitemap.xml', 'w', encoding='utf-8') as f:
+            f.write(map_text)
 
         # Save bd
         used_df = pd.read_csv(self.reviews_csv_file, sep='\t')
@@ -218,10 +226,19 @@ class SitesGenerator:
             if master_item is not None:
                 masters_block.insert(i, master_item)
 
-        # Script questions
+        # Questions
+        site_item.find('h3', {'data-mark': 'Container.question_1'}).string = site_data[7]
+        site_item.find('h3', {'data-mark': 'Container.question_2'}).string = site_data[9]
+        site_item.find('h3', {'data-mark': 'Container.question_3'}).string = site_data[11]
+        site_item.find('div', {'data-mark': 'Container.answer_1'}).string = site_data[8]
+        site_item.find('div', {'data-mark': 'Container.answer_2'}).string = site_data[10]
+        site_item.find('div', {'data-mark': 'Container.answer_3'}).string = site_data[12]
         site_item.find('script', {'type': 'application/ld+json'}).string = self.get_questions_script(site_data)
 
         return self.get_html(site_item)
+
+    def gen_site_map_block(self, site_path):
+        return '<url>\n<loc>'+site_path+'</loc>\n<changefreq>weekly</changefreq>\n<priority>1.00</priority>\n</url>'
 
     def get_html(self, soup):
         site_text = str(soup)
@@ -242,7 +259,6 @@ class SitesGenerator:
 
         return str(json.dumps(data, ensure_ascii=False))
 
-
     def master_check(self, master):
         masters = self.master_data_df[self.master_data_df['path'] == master].values
         return len(masters) == 1
@@ -262,8 +278,10 @@ class SitesGenerator:
         # Filling template
         # Info
         master_item = BeautifulSoup(master_item_text, "html.parser")
-        master_item.find('div', {'data-mark': 'MasterData.logoPath'}).find('img').attrs['src']\
-            = 'master/' + master_data[2]
+        avatar_src = 'master/' + master_data[2]
+        if avatar_src.split('.')[-1] != 'svg':
+            avatar_src += '.jpg'
+        master_item.find('div', {'data-mark': 'MasterData.logoPath'}).find('img').attrs['src'] = avatar_src
         master_item.find('h4', {'data-mark': 'MasterData.initials'}).string.replace_with(master_data[1])
         master_item.find('div', {'data-mark': 'MasterData.rate'}).find('span').string.replace_with(master_data[3])
         master_item.find('span', {'data-mark': 'MasterData.amount_reviews'})\
@@ -273,16 +291,15 @@ class SitesGenerator:
 
         # Reviews
         review = self.review_df.iloc[len(self.review_df.index)-review_used_count][0]
-        self.review_df.loc[len(self.review_df.index) - review_used_count, 'used'] = 1.0
+        #self.review_df.loc[len(self.review_df.index) - review_used_count, 'used'] = 1.0
 
         master_item.find('p', {'data-mark': 'ReviewData.review'})\
             .string.replace_with(review)
 
-        name = RussianNames().get_person().split(' ')
-        name[0], name[1], name[2] = name[-1], name[0], name[1]
-        reviewers_name = ' '.join(name)
+        reviewers_name = RussianNames().get_person().split(' ')[0]
         master_item.find('div', {'data-mark': 'ReviewData.review_customerName_date'})\
-            .string = '{0}<span>{1}</span>'.format(reviewers_name, self.gen_rand_review_date())
+            .string = '{0} <span>{1}</span>'.format(reviewers_name,
+                                                   self.gen_rand_review_date())
 
         # About
         master_about = self.master_about_df[self.master_about_df['masterDataId'] == master].sort_values(['id'])\
@@ -315,8 +332,10 @@ class SitesGenerator:
             education_block.decompose()
 
         # Price, work_online, consultation
-        master_item.find('div', {'data-mark': 'MasterData.cost_time'}).find('span')\
-            .string.replace_with(master_data[6] + ' ₽')
+        time_spacing = [45, 60]
+        master_item.find('div', {'data-mark': 'MasterData.cost_time'})\
+            .string = "<span>" + master_data[6] + " ₽</span> / " + \
+                      str(time_spacing[random.randint(0, len(time_spacing) - 1)]) + " мин"
         if not master_data[7]:
             master_item.find('div', {'data-mark': 'MasterData.work_online'}).decompose()
         if not master_data[8]:

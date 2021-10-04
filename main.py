@@ -14,3 +14,4 @@ OUT_DIRECTORY = 'S:\\sites\\'
 generator = SitesGenerator(REVIEWS_CSV_FILE)
 generator.download_data(TOKEN_FILE, TABLE_ID)
 generator.gen_sites(OUT_DIRECTORY)
+
