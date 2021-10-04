@@ -291,7 +291,7 @@ class SitesGenerator:
 
         # Reviews
         review = self.review_df.iloc[len(self.review_df.index)-review_used_count][0]
-        #self.review_df.loc[len(self.review_df.index) - review_used_count, 'used'] = 1.0
+        self.review_df.loc[len(self.review_df.index) - review_used_count, 'used'] = 1.0
 
         master_item.find('p', {'data-mark': 'ReviewData.review'})\
             .string.replace_with(review)
