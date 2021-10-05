@@ -1,10 +1,13 @@
-import pandas as pd
-from google_sheets_api import GoogleSheetsApi
-from bs4 import BeautifulSoup
-from russian_names import RussianNames
 import random
 import os
 import json
+
+import pandas as pd
+
+from google_sheets_api import GoogleSheetsApi
+from bs4 import BeautifulSoup
+from russian_names import RussianNames
+
 
 """List names for downloading"""
 CONTAINER_LIST = 'Container'
@@ -17,7 +20,6 @@ MASTER_MINIMUM_COUNT = 6
 MASTER_MAXIMUM_COUNT = 14
 
 
-
 class SitesGenerator:
     def __init__(self, reviews_csv_file):
         self.container_df = pd.DataFrame()
@@ -28,6 +30,7 @@ class SitesGenerator:
         self.review_df = pd.DataFrame()
 
         self.master_maximum_count = MASTER_MAXIMUM_COUNT
+        self.master_minimum_count = MASTER_MINIMUM_COUNT
 
         # Load reviews
         if not os.path.exists(reviews_csv_file):
@@ -35,8 +38,7 @@ class SitesGenerator:
 
         self.reviews_csv_file = reviews_csv_file
         self.review_df = pd.read_csv(reviews_csv_file, sep='\t')
-        self.review_df = self.review_df[self.review_df.used == 0.0]
-        self.review_df.reset_index()
+        self.review_df['used'] = 0.0
 
     def download_data(self, token, table_id):
         # Downloading data from sheets
@@ -107,15 +109,13 @@ class SitesGenerator:
     def to_bool_list(self, arr):
         return [True if len(i) > 0 else False for i in arr]
 
-    def gen_sites(self, out_directory):
-        count_of_unused_review = len(self.review_df['used'].index)
-
+    def gen_sites(self, token, table_id, out_directory):
         # Generate sites
         firsts_sites = self.container_df[self.container_df['First_add'] == True].values
-        count_of_unused_review = self.gen_sites_by_list(out_directory, firsts_sites, count_of_unused_review)
+        self.gen_sites_by_list(out_directory, firsts_sites)
 
         not_firsts_sites = self.container_df[self.container_df['First_add'] == False].values
-        count_of_unused_review = self.gen_sites_by_list(out_directory, not_firsts_sites, count_of_unused_review)
+        self.gen_sites_by_list(out_directory, not_firsts_sites)
 
         # Link sites
         generated_sites = self.container_df[self.container_df['generated'] == True].values
@@ -124,7 +124,9 @@ class SitesGenerator:
             self.container_df.loc[self.container_df['urlPath'] == site[2], 'add'] = True
 
         # Mapping sites
-        map_text = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        map_text = '<?xml version="1.0" encoding="UTF-8"?>\n' \
+                   '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        map_text += self.gen_site_map_block('https://dumkii.com/')
         for site in generated_sites:
             map_text += self.gen_site_map_block('https://dumkii.com/'+site[2])
         map_text += '</urlset>'
@@ -132,35 +134,31 @@ class SitesGenerator:
         with open(out_directory + 'sitemap.xml', 'w', encoding='utf-8') as f:
             f.write(map_text)
 
-        # Save bd
-        used_df = pd.read_csv(self.reviews_csv_file, sep='\t')
-        used_df = used_df[used_df.used == 1.0]
-        used_df.to_csv(self.reviews_csv_file, sep='\t', index=False, header=True)
-        self.review_df.to_csv(self.reviews_csv_file, sep='\t', mode='a', index=False, header=False)
+        # Save added sites in google table
+        sheets = GoogleSheetsApi(token)
+        add_list = self.container_df['add'].tolist()
+        add_list = ['add' if item else '' for item in add_list]
+        sheets.put_column_to_sheets(table_id, CONTAINER_LIST, 'N', 2, len(add_list) + 2, add_list)
 
-    def gen_sites_by_list(self, out_directory, sites, count_of_unused_review):
+        # # Save used goods in file
+        # used_df = pd.read_csv(self.reviews_csv_file, sep='\t')
+        # used_df = used_df[used_df.used == 1.0]
+        # used_df.to_csv(self.reviews_csv_file, sep='\t', index=False, header=True)
+        # self.review_df.to_csv(self.reviews_csv_file, sep='\t', mode='a', index=False, header=False)
+
+    def gen_sites_by_list(self, out_directory, sites):
         for site in sites:
-            # Too little review
-            if count_of_unused_review == 0 or count_of_unused_review < MASTER_MINIMUM_COUNT:
-                break
-            if count_of_unused_review < self.master_maximum_count:
-                self.master_maximum_count = count_of_unused_review
+            masters = self.get_masters_paths(site[0], self.master_minimum_count, self.master_maximum_count)
+            reviews = self.get_reviews(site[0], self.master_minimum_count, len(masters))
 
-            masters = list(self.get_masters(site[0]))
-            masters = list(filter(lambda x : self.master_check(x), masters))
-
-            if len(masters) >= MASTER_MINIMUM_COUNT:
-                if len(masters) > self.master_maximum_count:
-                    masters = random.sample(masters, self.master_maximum_count)
-                    count_of_unused_review -= len(masters)
-                    site_text = self.gen_site(site, masters, count_of_unused_review)
-                    with open(out_directory+site[2]+'.html', 'w', encoding='utf-8') as f:
-                        f.write(site_text)
-                    self.container_df.loc[self.container_df['urlPath'] == site[2], 'generated'] = True
-            else:
-                pass
-
-        return count_of_unused_review
+            if len(masters) > 0 and len(reviews) > 0:
+                # Generate site text
+                site_text = self.gen_site(site, masters, reviews)
+                # Save site
+                with open(out_directory+site[2]+'.html', 'w', encoding='utf-8') as f:
+                    f.write(site_text)
+                # Mark generated
+                self.container_df.loc[self.container_df['urlPath'] == site[2], 'generated'] = True
 
     def link_site(self, out_directory, site):
         # Open site
@@ -206,7 +204,7 @@ class SitesGenerator:
         with open(out_directory + site[2] + '.html', 'w', encoding='utf-8') as f:
             f.write(str(site_item))
 
-    def gen_site(self, site_data, masters, count_of_unused_review):
+    def gen_site(self, site_data, masters, reviews):
         # Get template of site
         with open('template.html', 'r', encoding='utf-8') as f:
             site_text = f.read()
@@ -221,8 +219,10 @@ class SitesGenerator:
         # Master list
         site_item.find('h2', {'data-mark': 'Container.masterList'}).string = site_data[4]
         masters_block = site_item.find('h2', {'data-mark': 'Container.masterList'}).parent.div
-        for i in range(len(masters)):
-            master_item = self.gen_master_item(masters[i], count_of_unused_review + i)
+
+        min_len = min(len(masters), len(reviews))
+        for i in range(min_len):
+            master_item = self.gen_master_item(masters[i], reviews[i])
             if master_item is not None:
                 masters_block.insert(i, master_item)
 
@@ -236,6 +236,42 @@ class SitesGenerator:
         site_item.find('script', {'type': 'application/ld+json'}).string = self.get_questions_script(site_data)
 
         return self.get_html(site_item)
+
+    # Getting reviews equal selection_id from review_df, if reviews count less then minimum_reviews return [],
+    # if count more then maximum_reviews return maximum_reviews reviews
+    def get_reviews(self, selection_id, minimum_reviews, maximum_reviews):
+        review_buf_df = self.review_df[(self.review_df.sectionId == selection_id) &
+                                       (self.review_df.used == 0.0)].head(maximum_reviews)
+
+        count_reviews = len(review_buf_df.index)
+        if count_reviews < minimum_reviews:
+            reviews_list = []
+        else:
+            self.review_df.at[review_buf_df.index, 'used'] = 1.0
+            reviews_list = list(review_buf_df['review'].tolist())
+
+        return reviews_list
+
+    # Getting masters paths equal selection_id from selection_master_df
+    # if masters count less then minimum_masters return [],
+    # if count more then maximum_masters return maximum_masters masters
+    def get_masters_paths(self, selection_id, minimum_masters, maximum_masters):
+        master_paths = self.selection_master_df[self.selection_master_df['sectionId'] == selection_id]['pathMaster']\
+            .values
+        master_paths = list(filter(lambda x: self.valid_master_path(x), master_paths))
+
+        if len(master_paths) > maximum_masters:
+            master_paths = random.sample(master_paths, maximum_masters)
+        if len(master_paths) < minimum_masters:
+            master_paths = []
+
+        return master_paths
+
+    # Validate master_path
+    # If count masters with master_path equal 1 return True, else False
+    def valid_master_path(self, master_path):
+        masters_count = self.master_data_df[self.master_data_df['path'] == master_path].values
+        return len(masters_count) == 1
 
     def gen_site_map_block(self, site_path):
         return '<url>\n<loc>'+site_path+'</loc>\n<changefreq>weekly</changefreq>\n<priority>1.00</priority>\n</url>'
@@ -259,14 +295,7 @@ class SitesGenerator:
 
         return str(json.dumps(data, ensure_ascii=False))
 
-    def master_check(self, master):
-        masters = self.master_data_df[self.master_data_df['path'] == master].values
-        return len(masters) == 1
-
-    def get_masters(self, sectionid):
-        return self.selection_master_df[self.selection_master_df['sectionId'] == sectionid]['pathMaster'].values
-
-    def gen_master_item(self, master, review_used_count):
+    def gen_master_item(self, master, review):
         # Get author data
         masters = self.master_data_df[self.master_data_df['path'] == master].values
         master_data = masters[0]
@@ -290,16 +319,10 @@ class SitesGenerator:
             .string.replace_with('Уроки: ' + master_data[5])
 
         # Reviews
-        review = self.review_df.iloc[len(self.review_df.index)-review_used_count][0]
-        self.review_df.loc[len(self.review_df.index) - review_used_count, 'used'] = 1.0
-
-        master_item.find('p', {'data-mark': 'ReviewData.review'})\
-            .string.replace_with(review)
-
+        master_item.find('p', {'data-mark': 'ReviewData.review'}).string.replace_with(review)
         reviewers_name = RussianNames().get_person().split(' ')[0]
         master_item.find('div', {'data-mark': 'ReviewData.review_customerName_date'})\
-            .string = '{0} <span>{1}</span>'.format(reviewers_name,
-                                                   self.gen_rand_review_date())
+            .string = '{0} <span>{1}</span>'.format(reviewers_name, self.gen_rand_review_date())
 
         # About
         master_about = self.master_about_df[self.master_about_df['masterDataId'] == master].sort_values(['id'])\
