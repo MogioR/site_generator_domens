@@ -35,6 +35,7 @@ class SitesGenerator:
         # Load reviews
         if not os.path.exists(reviews_csv_file):
             print('Bad path to goods_bd file!')
+            raise Exception('Bad path to goods_bd file!')
 
         self.reviews_csv_file = reviews_csv_file
         self.review_df = pd.read_csv(reviews_csv_file, sep='\t')
@@ -222,7 +223,7 @@ class SitesGenerator:
 
         min_len = min(len(masters), len(reviews))
         for i in range(min_len):
-            master_item = self.gen_master_item(masters[i], reviews[i])
+            master_item = self.gen_master_item(masters[i], reviews[i], i)
             if master_item is not None:
                 masters_block.insert(i, master_item)
 
@@ -295,7 +296,7 @@ class SitesGenerator:
 
         return str(json.dumps(data, ensure_ascii=False))
 
-    def gen_master_item(self, master, review):
+    def gen_master_item(self, master, review, num):
         # Get author data
         masters = self.master_data_df[self.master_data_df['path'] == master].values
         master_data = masters[0]
@@ -397,6 +398,12 @@ class SitesGenerator:
             new_tag = master_item.new_tag('li')
             characteristic_block.append(new_tag)
             characteristic_block.find_all('li')[-1].string = 'Взрослые'
+
+        # Paste nums
+        master_item.find('div', {'class': 'master__left _master-1'})['class'] = 'master__left _master-' + str(num + 1)
+        master_item.find('div', {'class': 'spollers _spollers-1'})['class'] = 'spollers _spollers-'+str(num+1)
+        master_item.find('div', {'data-da': '_master-1,1,991'})['data-da'] = '_master-'+str(num+1)+',1,991'
+        master_item.find('div', {'data-da': '_spollers-1,2,991'})['data-da'] = '_spollers-'+str(num+1)+',2,991'
 
         return self.get_html(master_item)
 
