@@ -39,6 +39,7 @@ class SitesGenerator:
 
         self.reviews_csv_file = reviews_csv_file
         self.review_df = pd.read_csv(reviews_csv_file, sep='\t')
+        self.review_df = self.review_df.sample(frac=1).reset_index(drop=True)
         self.review_df['used'] = 0.0
 
     def download_data(self, token, table_id):
