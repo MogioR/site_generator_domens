@@ -237,6 +237,20 @@ class SitesGenerator:
         site_item.find('div', {'data-mark': 'Container.answer_3'}).string = site_data[12]
         site_item.find('script', {'type': 'application/ld+json'}).string = self.get_questions_script(site_data)
 
+        new_tag = site_item.new_tag('script')
+        site_item.body.append(new_tag)
+        site_item.find_all('script')[-1]['type'] = 'application/ld+json'
+
+        random_price = 'от ' + str(random.randint(600, 800)) + ' до ' + str(random.randint(1200, 1500)) + ' ₽'
+        data = json.dumps({
+            '@context': 'http://schema.org', '@type': 'LocalBusiness', 'name': site_data[3],
+            'url': site_data[2]+'.html',
+            'priceRange': random_price, 'reviewCount': str(random.randint(400, 2500)),
+            'ratingValue': str(random.randint(47, 50) / 10)
+        }, ensure_ascii=False)
+
+        site_item.find_all('script')[-1].string = data
+
         return self.get_html(site_item)
 
     # Getting reviews equal selection_id from review_df, if reviews count less then minimum_reviews return [],
@@ -408,7 +422,9 @@ class SitesGenerator:
 
         return self.get_html(master_item)
 
-    def gen_rand_review_date(self):
+    # Return random post date
+    @staticmethod
+    def gen_rand_review_date():
         dates = (
             'сегодня',
             'вчера',
@@ -423,3 +439,5 @@ class SitesGenerator:
             'больше месяца назад'
         )
         return dates[random.randint(0, len(dates)-1)]
+
+
