@@ -1,0 +1,28 @@
+{
+  "@context":"http://schema.org",
+  "@type":"LocalBusiness",
+  "name": "{0}",
+  "url": "{1}",
+  "currenciesAccepted": "BRL",
+  "paymentAccepted": "Cash, Credit Card",
+  "openingHours": "Mo-Su",
+  "telephone": "+375 (29) 680-80-77",
+  "logo":"https://dumkii.com/img/header-logo.svg",
+  "image":"https://dumkii.com/img/header-logo.svg",
+  "priceRange" : "{2}",
+  "address":{
+    "@type":"PostalAddress",
+    "addressCountry":"BY",
+    "addressRegion":"Гомельская область",
+    "addressLocality":"Гомель",
+    "streetAddress":"ул. Рабочая, 28",
+    "postalCode":"246000"
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "reviewCount": "{3}",
+    "ratingValue": "{4}",
+    "bestRating": "5",
+    "worstRating": "1"
+  }
+}

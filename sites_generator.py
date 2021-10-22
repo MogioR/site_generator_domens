@@ -240,16 +240,7 @@ class SitesGenerator:
         new_tag = site_item.new_tag('script')
         site_item.body.append(new_tag)
         site_item.find_all('script')[-1]['type'] = 'application/ld+json'
-
-        random_price = 'от ' + str(random.randint(600, 800)) + ' до ' + str(random.randint(1200, 1500)) + ' ₽'
-        data = json.dumps({
-            '@context': 'http://schema.org', '@type': 'LocalBusiness', 'name': site_data[3],
-            'url': site_data[2]+'.html',
-            'priceRange': random_price, 'reviewCount': str(random.randint(400, 2500)),
-            'ratingValue': str(random.randint(47, 50) / 10)
-        }, ensure_ascii=False)
-
-        site_item.find_all('script')[-1].string = data
+        site_item.find_all('script')[-1].string = self.get_end_script(site_data[3], site_data[2]+'.html')
 
         return self.get_html(site_item)
 
@@ -298,7 +289,8 @@ class SitesGenerator:
         site_text = site_text.replace('&gt;', '>')
         return site_text
 
-    def get_questions_script(self, site_data):
+    @staticmethod
+    def get_questions_script(site_data):
         with open('question_script_template.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
 
@@ -308,6 +300,21 @@ class SitesGenerator:
         data['mainEntity'][1]['acceptedAnswer']['text'] = site_data[10]
         data['mainEntity'][2]['name'] = site_data[11]
         data['mainEntity'][2]['acceptedAnswer']['text'] = site_data[12]
+
+        return str(json.dumps(data, ensure_ascii=False))
+
+    @staticmethod
+    def get_end_script(container_name, url):
+        with open('end_script_template.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        random_price = 'от ' + str(random.randint(600, 800)) + ' до ' + str(random.randint(1200, 1500)) + ' ₽'
+
+        data['name'] = container_name
+        data['url'] = url
+        data['priceRange'] = random_price
+        data['aggregateRating']['reviewCount'] = str(random.randint(400, 2500))
+        data['aggregateRating']['ratingValue'] = str(random.randint(47, 50) / 10)
 
         return str(json.dumps(data, ensure_ascii=False))
 
