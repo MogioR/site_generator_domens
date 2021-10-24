@@ -308,7 +308,14 @@ class SitesGenerator:
         with open('end_script_template.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        random_price = 'от ' + str(random.randint(600, 800)) + ' до ' + str(random.randint(1200, 1500)) + ' ₽'
+        # Gen random price
+        min_price = random.randint(6, 8) * 100 + random.randint(0, 1) * 50
+        if min_price > 800:
+            min_price = 800
+        max_price = random.randint(12, 15) * 100 + random.randint(0, 1) * 50
+        if max_price > 1500:
+            max_price = 1500
+        random_price = 'от ' + str(min_price) + ' до ' + str(max_price) + ' ₽'
 
         data['name'] = container_name
         data['url'] = url
