@@ -25,8 +25,10 @@ class GoogleSheetsApi:
             range="'{0}'!{1}:{2}".format(list_name, start_range_point, end_range_point),
             majorDimension=majorDimension
         ).execute()
-
-        return values['values']
+        if 'values' in values.keys():
+            return values['values']
+        else:
+            return []
 
     """Function put data([[]]) in the google sheets table_id(str) in 
                 list_name(str)!start_range_point(str):end_range_point(str)"""
