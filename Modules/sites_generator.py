@@ -31,6 +31,7 @@ MASTER_MAXIMUM_COUNT = 14
 
 NUM_THREADS = 8
 GOOGLE_BLOCK_SIZE = 250
+MAKE_REPORT = False
 
 
 class SitesGenerator:
@@ -186,11 +187,12 @@ class SitesGenerator:
                 f.write(sites_maps[domain])
 
         # Save added sites in google table
-        print('Make report')
-        sheets = GoogleSheetsApi(token)
-        add_list = self.container_df['add'].tolist()
-        add_list = ['add' if item else '' for item in add_list]
-        sheets.put_column_to_sheets_packets(table_id, CONTAINER_LIST, 'O', 2, add_list, GOOGLE_BLOCK_SIZE)
+        if MAKE_REPORT:
+            print('Make report')
+            sheets = GoogleSheetsApi(token)
+            add_list = self.container_df['add'].tolist()
+            add_list = ['add' if item else '' for item in add_list]
+            sheets.put_column_to_sheets_packets(table_id, CONTAINER_LIST, 'O', 2, add_list, GOOGLE_BLOCK_SIZE)
 
     def gen_sites_by_list(self, out_directory, sites: list):
         for site in tqdm(sites):
