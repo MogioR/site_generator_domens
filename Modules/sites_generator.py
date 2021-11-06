@@ -2,6 +2,8 @@ import random
 import os
 import json
 import re
+from multiprocessing import Pool
+from functools import partial
 
 import pandas as pd
 from tqdm import tqdm
@@ -27,7 +29,9 @@ QUESTION_SCRIPT_TEMPLATE_ROOT = '\\Assets\\question_script_template.json'
 MASTER_MINIMUM_COUNT = 6
 MASTER_MAXIMUM_COUNT = 14
 
+NUM_THREADS = 8
 GOOGLE_BLOCK_SIZE = 250
+
 
 class SitesGenerator:
     def __init__(self, master_about_csv_file, reviews_csv_file, root_path):
@@ -150,11 +154,11 @@ class SitesGenerator:
         # Generate sites
         print('Gen first')
         firsts_sites = self.container_df[self.container_df['First_add'] == True].values
-        self.gen_sites_by_list(out_directory, firsts_sites)
+        self.gen_sites_by_list_fast(out_directory, firsts_sites)
 
         print('Gen next')
         not_firsts_sites = self.container_df[self.container_df['First_add'] == False].values
-        self.gen_sites_by_list(out_directory, not_firsts_sites)
+        self.gen_sites_by_list_fast(out_directory, not_firsts_sites)
 
         # Link sites
         print('Link sites')
@@ -172,7 +176,7 @@ class SitesGenerator:
             map_text += self.gen_site_map_block(domain)
             sites_maps[domain] = map_text
 
-        for site in generated_sites:
+        for site in tqdm(generated_sites):
             sites_maps[site[1]] += self.gen_site_map_block(site[1]+site[3])
 
         for domain in self.domains.keys():
@@ -183,25 +187,70 @@ class SitesGenerator:
 
         # Save added sites in google table
         print('Make report')
-        sheets = GoogleSheetsApi(token)
-        add_list = self.container_df['add'].tolist()
-        add_list = ['add' if item else '' for item in add_list]
-        sheets.put_column_to_sheets_packets(table_id, CONTAINER_LIST, 'O', 2, add_list, GOOGLE_BLOCK_SIZE)
+        # sheets = GoogleSheetsApi(token)
+        # add_list = self.container_df['add'].tolist()
+        # add_list = ['add' if item else '' for item in add_list]
+        # sheets.put_column_to_sheets_packets(table_id, CONTAINER_LIST, 'O', 2, add_list, GOOGLE_BLOCK_SIZE)
 
     def gen_sites_by_list(self, out_directory, sites: list):
         for site in tqdm(sites):
-            masters = self.get_masters_paths(site[0], self.master_minimum_count, self.master_maximum_count)
+            masters = self.get_masters_paths(self.master_minimum_count, self.master_maximum_count, site)
             if len(masters) > 0:
-                content = self.get_content(site[0], self.master_minimum_count, len(masters))
+                content = self.get_content(self.master_minimum_count, len(masters), site)
                 if len(content) > 0:
                     # Generate site text
-                    site_text = self.gen_site(site, masters, content)
+                    site_text = self.gen_site_page(site, masters, content)
                     # Save site
                     domain_root = self.domain_to_root(site[1]) + '\\'
                     with open(out_directory+domain_root+site[3]+'.html', 'w', encoding='utf-8') as f:
                         f.write(site_text)
                     # Mark generated
                     self.container_df.loc[self.container_df['urlPath'] == site[3], 'generated'] = True
+
+    def gen_sites_by_list_fast(self, out_directory, sites):
+        selection_id_black_list = []
+
+        # Gen master paths parallel
+        pool = Pool(NUM_THREADS)
+        func = partial(self.get_masters_paths, self.master_minimum_count, self.master_maximum_count)
+        sites_masters = []
+        for masters in tqdm(pool.imap_unordered(func, sites), total=len(sites)):
+            sites_masters.append(masters)
+
+        # Gen reviews one-thread
+        sites_content = []
+        for i in tqdm(range(len(sites))):
+            if len(sites_masters[i]) != 0 and sites[i][0] not in selection_id_black_list:
+                content_buf = self.get_content(self.master_minimum_count, len(sites_masters[i]), sites[i][0])
+                sites_content.append(content_buf)
+                if len(content_buf) == 0:
+                    selection_id_black_list.append(sites[i][0])
+            else:
+                sites_content.append([])
+
+        # Gen sites parallel
+        func = partial(self.gen_site_fast, out_directory)
+        func_args = []
+        for i in range(len(sites)):
+            func_args.append([sites[i], sites_masters[i], sites_content[i]])
+
+        for _ in tqdm(pool.imap_unordered(func, func_args), total=len(func_args)):
+            pass
+
+    def gen_site_fast(self, out_directory: str, args: list):
+        site = args[0]
+        masters = args[1]
+        content = args[2]
+
+        if len(content) > 0:
+            # Generate site text
+            site_text = self.gen_site_page(site, masters, content)
+            # Save site
+            domain_root = self.domain_to_root(site[1]) + '\\'
+            with open(out_directory + domain_root + site[3] + '.html', 'w', encoding='utf-8') as f:
+                f.write(site_text)
+            # Mark generated
+            self.container_df.loc[self.container_df['urlPath'] == site[3], 'generated'] = True
 
     def link_site(self, out_directory, site):
         # Open site
@@ -232,7 +281,7 @@ class SitesGenerator:
         with open(out_directory + domain_root + site[3] + '.html', 'w', encoding='utf-8') as f:
             f.write(str(site_item))
 
-    def gen_site(self, site_data, masters, content):
+    def gen_site_page(self, site_data, masters, content):
         # Get template of site
         with open(self.root_path+SITE_TEMPLATE_ROOT, 'r', encoding='utf-8') as f:
             site_text = f.read()
@@ -268,29 +317,12 @@ class SitesGenerator:
         site_text = site_text.replace('{GTM_2}', self.domains[site_data[1]][3])
         return site_text
 
-    # Getting exclusive_entities from data_frame[data_label] equal selection_id from review_df,
-    # if reviews count less then minimum_reviews return [],
-    # if count more then maximum_reviews return maximum_reviews reviews
-    @staticmethod
-    def get_exclusive_entities(data_frame, data_label, selection_id, minimum_entities, maximum_entities):
-        buf_df = data_frame[(data_frame.sectionId == selection_id) &
-                                       (data_frame.used == 0.0)].head(maximum_entities)
-
-        count_reviews = len(buf_df.index)
-        if count_reviews < minimum_entities:
-            entities_list = []
-        else:
-            data_frame.at[buf_df.index, 'used'] = 1.0
-            entities_list = list(buf_df[data_label].tolist())
-
-        return entities_list
-
     # Get content for masters
     # Return [['review', '...'], ['about', '...'], ...]
-    def get_content(self, selection_id: str, minimum_entities: int, maximum_entities: int):
-        reviews_df = self.review_df[(self.review_df.sectionId == selection_id) &
+    def get_content(self, minimum_entities: int, maximum_entities: int, site):
+        reviews_df = self.review_df[(self.review_df.sectionId == site[0]) &
                                     (self.review_df.used == 0.0)].head(maximum_entities)
-        master_about_df = self.master_about_df[(self.master_about_df.sectionId == selection_id) &
+        master_about_df = self.master_about_df[(self.master_about_df.sectionId == site[0]) &
                                                (self.master_about_df.used == 0.0)].head(maximum_entities)
 
         count = len(reviews_df.index) + len(master_about_df)
@@ -319,11 +351,11 @@ class SitesGenerator:
 
         return content_list
 
-    # Getting masters paths equal selection_id from selection_master_df
+    # Getting masters paths equal site selection_id from selection_master_df
     # if masters count less then minimum_masters return [],
     # if count more then maximum_masters return maximum_masters masters
-    def get_masters_paths(self, selection_id, minimum_masters, maximum_masters):
-        master_paths = self.selection_master_df[self.selection_master_df['sectionId'] == selection_id]['pathMaster']\
+    def get_masters_paths(self, minimum_masters, maximum_masters, site):
+        master_paths = self.selection_master_df[self.selection_master_df['sectionId'] == site[0]]['pathMaster']\
             .values
         master_paths = list(filter(lambda x: self.valid_master_path(x), master_paths))
 

@@ -6,7 +6,7 @@ TOKEN_FILE = 'Environment/google_token.json'                 # File with google 
 TABLE_ID = '1STZSpnA8MuR2d2cHL2YlZumuFYoi-Fr3RtMYASrnYcU'    # ID Google Sheets document
 REVIEWS_CSV_FILE = 'Data/reviews.tsv'                        # Path/name.csv of goods file
 MASTER_ABOUTS_CSV_FILE = 'Data/master_abouts.tsv'            # Path/name.csv of goods file
-OUT_DIRECTORY = 'D:\\sites\\'                                # Path of output directory
+OUT_DIRECTORY = 'D:\\#sites\\'                                # Path of output directory
 ASSETS_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
