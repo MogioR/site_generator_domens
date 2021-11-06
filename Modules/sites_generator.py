@@ -31,7 +31,7 @@ MASTER_MAXIMUM_COUNT = 14
 
 NUM_THREADS = 8
 GOOGLE_BLOCK_SIZE = 250
-MAKE_REPORT = False
+MAKE_REPORT = True
 
 
 class SitesGenerator:
@@ -87,9 +87,9 @@ class SitesGenerator:
                                 'E' + str(sheets.get_list_size(table_id, DOMAIN_LIST)[1]), 'ROWS')
 
         # Data frame filling
-        elements_count = len(container_data[0])
+        elements_count = len(container_data[0][:1000])
         container_data = self.normalize_list(container_data, 16, [])
-        self.container_df['sectionId'] = container_data[0]
+        self.container_df['sectionId'] = self.normalize_list(container_data[0], elements_count)
         self.container_df['domain'] = self.normalize_list(container_data[1], elements_count)
         self.container_df['location'] = self.normalize_list(container_data[2], elements_count)
         self.container_df['urlPath'] = self.normalize_list(container_data[3], elements_count)
@@ -223,7 +223,7 @@ class SitesGenerator:
         sites_content = []
         for i in tqdm(range(len(sites))):
             if len(sites_masters[i]) != 0 and sites[i][0] not in selection_id_black_list:
-                content_buf = self.get_content(self.master_minimum_count, len(sites_masters[i]), sites[i][0])
+                content_buf = self.get_content(self.master_minimum_count, len(sites_masters[i]), sites[i])
                 sites_content.append(content_buf)
                 if len(content_buf) == 0:
                     selection_id_black_list.append(sites[i][0])
@@ -328,6 +328,7 @@ class SitesGenerator:
                                                (self.master_about_df.used == 0.0)].head(maximum_entities)
 
         count = len(reviews_df.index) + len(master_about_df)
+
         if count < minimum_entities:
             content_list = []
         else:
