@@ -27,6 +27,7 @@ QUESTION_SCRIPT_TEMPLATE_ROOT = '\\Assets\\question_script_template.json'
 MASTER_MINIMUM_COUNT = 6
 MASTER_MAXIMUM_COUNT = 14
 
+GOOGLE_BLOCK_SIZE = 250
 
 class SitesGenerator:
     def __init__(self, master_about_csv_file, reviews_csv_file, root_path):
@@ -182,10 +183,10 @@ class SitesGenerator:
 
         # Save added sites in google table
         print('Make report')
-        # sheets = GoogleSheetsApi(token)
-        # add_list = self.container_df['add'].tolist()
-        # add_list = ['add' if item else '' for item in add_list]
-        # sheets.put_column_to_sheets(table_id, CONTAINER_LIST, 'O', 2, len(add_list) + 2, add_list)
+        sheets = GoogleSheetsApi(token)
+        add_list = self.container_df['add'].tolist()
+        add_list = ['add' if item else '' for item in add_list]
+        sheets.put_column_to_sheets_packets(table_id, CONTAINER_LIST, 'O', 2, add_list, GOOGLE_BLOCK_SIZE)
 
     def gen_sites_by_list(self, out_directory, sites: list):
         for site in tqdm(sites):
@@ -407,7 +408,7 @@ class SitesGenerator:
         # About, review
         if info_type == 'about':
             # Delete review block
-            master_item.find('p', {'data-mark': 'ReviewData.review'}).decompose()
+            master_item.find('div', {'class': 'master__reviews-text'}).decompose()
 
             # Filling about block
             about_block = master_item.find('div', {'data-mark': 'MasterAbout.aboutText'}).parent
