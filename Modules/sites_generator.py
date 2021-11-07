@@ -29,9 +29,12 @@ QUESTION_SCRIPT_TEMPLATE_ROOT = '\\Assets\\question_script_template.json'
 MASTER_MINIMUM_COUNT = 6
 MASTER_MAXIMUM_COUNT = 14
 
+# Num thread for task
 NUM_THREADS = 8
-GOOGLE_BLOCK_SIZE = 250
+# If true mark generated sites in google_sheets
 MAKE_REPORT = True
+# Google sheets send packet size
+GOOGLE_BLOCK_SIZE = 250
 
 
 class SitesGenerator:
@@ -87,7 +90,7 @@ class SitesGenerator:
                                 'E' + str(sheets.get_list_size(table_id, DOMAIN_LIST)[1]), 'ROWS')
 
         # Data frame filling
-        elements_count = len(container_data[0][:1000])
+        elements_count = len(container_data[0])
         container_data = self.normalize_list(container_data, 16, [])
         self.container_df['sectionId'] = self.normalize_list(container_data[0], elements_count)
         self.container_df['domain'] = self.normalize_list(container_data[1], elements_count)
@@ -236,13 +239,15 @@ class SitesGenerator:
         for i in range(len(sites)):
             func_args.append([sites[i], sites_masters[i], sites_content[i]])
 
-        for _ in tqdm(pool.imap_unordered(func, func_args), total=len(func_args)):
-            pass
+        for generated, url_path in tqdm(pool.imap_unordered(func, func_args), total=len(func_args)):
+            if generated:
+                self.container_df.loc[self.container_df['urlPath'] == url_path, 'generated'] = True
 
     def gen_site_fast(self, out_directory: str, args: list):
         site = args[0]
         masters = args[1]
         content = args[2]
+        site_generated = False
 
         if len(content) > 0:
             # Generate site text
@@ -251,8 +256,8 @@ class SitesGenerator:
             domain_root = self.domain_to_root(site[1]) + '\\'
             with open(out_directory + domain_root + site[3] + '.html', 'w', encoding='utf-8') as f:
                 f.write(site_text)
-            # Mark generated
-            self.container_df.loc[self.container_df['urlPath'] == site[3], 'generated'] = True
+            site_generated = True
+        return site_generated, site[2]
 
     def link_site(self, out_directory, site):
         # Open site
