@@ -36,7 +36,7 @@ MAKE_REPORT = True
 # Google sheets send packet size
 GOOGLE_BLOCK_SIZE = 250
 DEBUG = True
-DEBUG_SITE_COUNT = 500
+DEBUG_SITE_COUNT = 100
 
 
 class SitesGenerator:
@@ -173,7 +173,6 @@ class SitesGenerator:
         # Link sites
         print('Link sites')
         generated_sites = self.container_df[self.container_df['generated'] == True].values
-        print(generated_sites)
         for site in tqdm(generated_sites):
             self.link_site(out_directory, site)
             self.container_df.loc[self.container_df['urlPath'] == site[3], 'add'] = True
@@ -188,7 +187,7 @@ class SitesGenerator:
             sites_maps[domain] = map_text
 
         for site in tqdm(generated_sites):
-            sites_maps[site[1]] += self.gen_site_map_block(site[1]+site[3])
+            sites_maps[site[1]] += self.gen_site_map_block(site[1].strip()+'/'+site[3].strip())
 
         for domain in self.domains.keys():
             sites_maps[domain] += '</urlset>'
