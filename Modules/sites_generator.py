@@ -35,6 +35,8 @@ NUM_THREADS = 8
 MAKE_REPORT = True
 # Google sheets send packet size
 GOOGLE_BLOCK_SIZE = 250
+DEBUG = True
+DEBUG_SITE_COUNT = 500
 
 
 class SitesGenerator:
@@ -90,7 +92,11 @@ class SitesGenerator:
                                 'E' + str(sheets.get_list_size(table_id, DOMAIN_LIST)[1]), 'ROWS')
 
         # Data frame filling
-        elements_count = len(container_data[0])
+        if not DEBUG:
+            elements_count = len(container_data[0])
+        else:
+            elements_count = len(container_data[0][:DEBUG_SITE_COUNT])
+
         container_data = self.normalize_list(container_data, 16, [])
         self.container_df['sectionId'] = self.normalize_list(container_data[0], elements_count)
         self.container_df['domain'] = self.normalize_list(container_data[1], elements_count)
@@ -167,6 +173,7 @@ class SitesGenerator:
         # Link sites
         print('Link sites')
         generated_sites = self.container_df[self.container_df['generated'] == True].values
+        print(generated_sites)
         for site in tqdm(generated_sites):
             self.link_site(out_directory, site)
             self.container_df.loc[self.container_df['urlPath'] == site[3], 'add'] = True
@@ -190,7 +197,7 @@ class SitesGenerator:
                 f.write(sites_maps[domain])
 
         # Save added sites in google table
-        if MAKE_REPORT:
+        if MAKE_REPORT and not DEBUG:
             print('Make report')
             sheets = GoogleSheetsApi(token)
             add_list = self.container_df['add'].tolist()
@@ -257,7 +264,7 @@ class SitesGenerator:
             with open(out_directory + domain_root + site[3] + '.html', 'w', encoding='utf-8') as f:
                 f.write(site_text)
             site_generated = True
-        return site_generated, site[2]
+        return site_generated, site[3]
 
     def link_site(self, out_directory, site):
         # Open site
