@@ -35,7 +35,7 @@ NUM_THREADS = 8
 MAKE_REPORT = True
 # Google sheets send packet size
 GOOGLE_BLOCK_SIZE = 250
-DEBUG = True
+DEBUG = False
 DEBUG_SITE_COUNT = 100
 
 
