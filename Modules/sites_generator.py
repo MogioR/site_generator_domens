@@ -32,10 +32,10 @@ MASTER_MAXIMUM_COUNT = 14
 # Num thread for task
 NUM_THREADS = 8
 # If true mark generated sites in google_sheets
-MAKE_REPORT = False
+MAKE_REPORT = True
 # Google sheets send packet size
 GOOGLE_BLOCK_SIZE = 250
-DEBUG = True
+DEBUG = False
 DEBUG_SITE_COUNT = 1000
 
 
@@ -162,7 +162,6 @@ class SitesGenerator:
                 os.mkdir(out_directory+self.domain_to_root(domain))
 
         generated_sites = self.container_df[self.container_df['generated'] == True].values
-        print(len(generated_sites))
 
         # Generate sites
         print('Gen first')
@@ -179,7 +178,6 @@ class SitesGenerator:
         # Link sites
         print('Link sites')
         generated_sites = self.container_df[self.container_df['generated'] == True].values
-        print(len(generated_sites))
         for site in tqdm(generated_sites):
             self.link_site(out_directory, site)
             self.container_df.loc[self.container_df['urlPath'] == site[3], 'add'] = True
@@ -270,7 +268,6 @@ class SitesGenerator:
             with open(out_directory + domain_root + site[3] + '.html', 'w', encoding='utf-8') as f:
                 f.write(site_text)
             site_generated = True
-            print(site_generated)
 
         return site_generated, site[3]
 
