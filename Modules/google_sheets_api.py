@@ -13,7 +13,6 @@ class GoogleSheetsApi:
         self.request_sleep = 200
         self.authorization(token)
 
-
     # Authorisation in serves google
     # Accept: authorisation token
     def authorization(self, token):

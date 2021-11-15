@@ -32,11 +32,11 @@ MASTER_MAXIMUM_COUNT = 14
 # Num thread for task
 NUM_THREADS = 8
 # If true mark generated sites in google_sheets
-MAKE_REPORT = True
+MAKE_REPORT = False
 # Google sheets send packet size
 GOOGLE_BLOCK_SIZE = 250
-DEBUG = False
-DEBUG_SITE_COUNT = 100
+DEBUG = True
+DEBUG_SITE_COUNT = 1000
 
 
 class SitesGenerator:
@@ -161,10 +161,16 @@ class SitesGenerator:
             if not os.path.exists(out_directory+self.domain_to_root(domain)):
                 os.mkdir(out_directory+self.domain_to_root(domain))
 
+        generated_sites = self.container_df[self.container_df['generated'] == True].values
+        print(len(generated_sites))
+
         # Generate sites
         print('Gen first')
         firsts_sites = self.container_df[self.container_df['First_add'] == True].values
         self.gen_sites_by_list_fast(out_directory, firsts_sites)
+
+        generated_sites = self.container_df[self.container_df['generated'] == True].values
+        print(len(generated_sites))
 
         print('Gen next')
         not_firsts_sites = self.container_df[self.container_df['First_add'] == False].values
@@ -173,6 +179,7 @@ class SitesGenerator:
         # Link sites
         print('Link sites')
         generated_sites = self.container_df[self.container_df['generated'] == True].values
+        print(len(generated_sites))
         for site in tqdm(generated_sites):
             self.link_site(out_directory, site)
             self.container_df.loc[self.container_df['urlPath'] == site[3], 'add'] = True
@@ -247,7 +254,7 @@ class SitesGenerator:
 
         for generated, url_path in tqdm(pool.imap_unordered(func, func_args), total=len(func_args)):
             if generated:
-                self.container_df.loc[self.container_df['urlPath'] == url_path, 'generated'] = True
+                self.container_df.loc[self.container_df.urlPath == url_path, 'generated'] = True
 
     def gen_site_fast(self, out_directory: str, args: list):
         site = args[0]
@@ -263,6 +270,8 @@ class SitesGenerator:
             with open(out_directory + domain_root + site[3] + '.html', 'w', encoding='utf-8') as f:
                 f.write(site_text)
             site_generated = True
+            print(site_generated)
+
         return site_generated, site[3]
 
     def link_site(self, out_directory, site):
@@ -275,7 +284,7 @@ class SitesGenerator:
         # Local block
         local_list = list(self.container_df.loc[(self.container_df.generated == True) &\
             (self.container_df.location != 'online') & (self.container_df.urlPath != site[3]) &\
-            (self.container_df.domain != site[1])][['urlPath', 'name']].values)
+            (self.container_df.domain == site[1])][['urlPath', 'name']].values)
 
         if len(local_list) > 10:
             local_list = random.sample(local_list, 10)
