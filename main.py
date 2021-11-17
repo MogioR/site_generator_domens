@@ -4,10 +4,10 @@ from multiprocessing import freeze_support
 
 """Options"""
 TOKEN_FILE = 'Environment/google_token.json'                 # File with google service auth token.
-TABLE_ID = '1ru0qAafWrT7BplWb-TY_hprwfLOVbnfYTX3lfPxLEVE'    # ID Google Sheets document
+TABLE_ID = '1zL-Hkl_oIliSWS9_6M0l9Zsu0yie7vUPirJazM5nyNU'    # ID Google Sheets document
 REVIEWS_CSV_FILE = 'Data/reviews.tsv'                        # Path/name.csv of goods file
 MASTER_ABOUTS_CSV_FILE = 'Data/master_abouts.tsv'            # Path/name.csv of goods file
-OUT_DIRECTORY = 'D:\\#sites\\'                                # Path of output directory
+OUT_DIRECTORY = 'D:\\#sites\\'                               # Path of output directory
 ASSETS_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 

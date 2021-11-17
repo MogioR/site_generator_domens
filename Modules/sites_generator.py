@@ -36,7 +36,7 @@ MAKE_REPORT = True
 # Google sheets send packet size
 GOOGLE_BLOCK_SIZE = 250
 DEBUG = False
-DEBUG_SITE_COUNT = 1000
+DEBUG_SITE_COUNT = 3000
 
 
 class SitesGenerator:
@@ -99,7 +99,7 @@ class SitesGenerator:
 
         container_data = self.normalize_list(container_data, 16, [])
         self.container_df['sectionId'] = self.normalize_list(container_data[0], elements_count)
-        self.container_df['domain'] = self.normalize_list(container_data[1], elements_count)
+        self.container_df['domain'] = [_.strip() for _ in self.normalize_list(container_data[1], elements_count)]
         self.container_df['location'] = self.normalize_list(container_data[2], elements_count)
         self.container_df['urlPath'] = self.normalize_list(container_data[3], elements_count)
         self.container_df['name'] = self.normalize_list(container_data[4], elements_count)
@@ -115,6 +115,9 @@ class SitesGenerator:
         self.container_df['add'] = self.to_bool_list(self.normalize_list(container_data[14], elements_count))
         self.container_df['First_add'] = self.to_bool_list(self.normalize_list(container_data[15], elements_count))
         self.container_df['generated'] = self.normalize_list([False], elements_count)
+
+        if DEBUG:
+            print(self.container_df.head(5).values)
 
         elements_count = len(master_data_data[0])
         self.master_data_df['path'] = master_data_data[0]
@@ -142,7 +145,7 @@ class SitesGenerator:
 
         # self.domains
         for domain in domains_data:
-            self.domains[domain[0]] = [domain[3], float(domain[4]), domain[1], domain[2]]
+            self.domains[domain[0].strip()] = [domain[3], float(domain[4]), domain[1], domain[2]]
 
     @staticmethod
     def normalize_list(arr, size, placeholder=''):
@@ -192,7 +195,7 @@ class SitesGenerator:
             sites_maps[domain] = map_text
 
         for site in tqdm(generated_sites):
-            sites_maps[site[1]] += self.gen_site_map_block(site[1].strip()+'/'+site[3].strip())
+            sites_maps[site[1]] += self.gen_site_map_block(site[1]+'/'+site[3])
 
         for domain in self.domains.keys():
             sites_maps[domain] += '</urlset>'
