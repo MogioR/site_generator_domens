@@ -147,6 +147,9 @@ class SitesGenerator:
         for domain in domains_data:
             self.domains[domain[0].strip()] = [domain[3], float(domain[4]), domain[1], domain[2]]
 
+        if DEBUG:
+            print(self.domains.keys())
+
     @staticmethod
     def normalize_list(arr, size, placeholder=''):
         if len(arr) <= size:
@@ -204,7 +207,7 @@ class SitesGenerator:
                 f.write(sites_maps[domain])
 
         # Save added sites in google table
-        if MAKE_REPORT and not DEBUG:
+        if MAKE_REPORT:
             print('Make report')
             sheets = GoogleSheetsApi(token)
             add_list = self.container_df['add'].tolist()
