@@ -2,6 +2,7 @@ import random
 import os
 import json
 import re
+import math
 from multiprocessing import Pool
 from functools import partial
 
@@ -28,6 +29,7 @@ QUESTION_SCRIPT_TEMPLATE_ROOT = '\\Assets\\question_script_template.json'
 
 MASTER_MINIMUM_COUNT = 6
 MASTER_MAXIMUM_COUNT = 14
+MASTER_ABOUT_COUNT = 4
 
 # Num thread for task
 NUM_THREADS = 8
@@ -36,7 +38,7 @@ MAKE_REPORT = True
 # Google sheets send packet size
 GOOGLE_BLOCK_SIZE = 250
 DEBUG = False
-DEBUG_SITE_COUNT = 4700
+DEBUG_SITE_COUNT = 500
 
 
 class SitesGenerator:
@@ -347,16 +349,18 @@ class SitesGenerator:
         reviews_df = self.review_df[(self.review_df.sectionId == site[0]) &
                                     (self.review_df.used == 0.0)].head(maximum_entities)
         master_about_df = self.master_about_df[(self.master_about_df.sectionId == site[0]) &
-                                               (self.master_about_df.used == 0.0)].head(maximum_entities)
+                                               (self.master_about_df.used == 0.0)]\
+            .head(maximum_entities*MASTER_ABOUT_COUNT)
 
-        count = len(reviews_df.index) + len(master_about_df)
+        count = len(reviews_df.index) + math.floor(float(len(master_about_df))/MASTER_ABOUT_COUNT)
 
         if count < minimum_entities:
             content_list = []
         else:
             content_list = []
             # 0 is review, 1 is about
-            random_chance = [0 for i in range(len(reviews_df.index))] + [1 for i in range(len(master_about_df.index))]
+            random_chance = [0 for i in range(len(reviews_df.index))] + \
+                            [1 for i in range(math.floor(float(len(master_about_df))/MASTER_ABOUT_COUNT))]
             random_sample = random.sample(random_chance, min(maximum_entities, count))
 
             reviews_index = 0
@@ -369,10 +373,13 @@ class SitesGenerator:
                     reviews_index += 1
 
                 elif content == 1:
-                    self.master_about_df.at[master_about_df.index[abouts_index], 'used'] = 1.0
-                    content_list.append(['about', self.master_about_df.iloc[master_about_df.index[abouts_index]]\
-                        ['aboutText']])
-                    abouts_index += 1
+                    abouts_buf = []
+                    for i in range(MASTER_ABOUT_COUNT):
+                        self.master_about_df.at[master_about_df.index[abouts_index], 'used'] = 1.0
+                        abouts_buf.append(self.master_about_df.iloc[master_about_df.index[abouts_index]]['aboutText'])
+                        abouts_index += 1
+
+                    content_list.append(['about', abouts_buf])
 
         return content_list
 
@@ -473,7 +480,8 @@ class SitesGenerator:
             new_tag = master_item.new_tag('p')
             about_block.div.insert(0, new_tag)
             about_block.find_all('p')[0].attrs['class'] = 'hide-item'
-            about_block.find_all('p')[0].string = info
+            info_str = '<br>'.join(info)
+            about_block.find_all('p')[0].string = info_str
 
         elif info_type == 'review':
             # Delete about block
